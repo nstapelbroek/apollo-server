@@ -71,7 +71,10 @@ export class EngineReportingTreeBuilder {
     };
   }
 
-  public didEncounterErrors(errors: GraphQLError[]) {
+  public didEncounterErrors(
+    errors: GraphQLError[],
+    shouldIncludeErrorTiming: boolean,
+  ) {
     errors.forEach(err => {
       // This is an error from a federated service. We will already be reporting
       // it in the nested Trace in the query plan.
@@ -92,6 +95,7 @@ export class EngineReportingTreeBuilder {
       this.addProtobufError(
         errorForReporting.path,
         errorToProtobufError(errorForReporting),
+        shouldIncludeErrorTiming,
       );
     });
   }
@@ -99,12 +103,21 @@ export class EngineReportingTreeBuilder {
   private addProtobufError(
     path: ReadonlyArray<string | number> | undefined,
     error: Trace.Error,
+    shouldIncludeErrorTiming: boolean,
   ) {
     if (!this.startHrTime) {
       throw Error('addProtobufError called before startTiming!');
     }
-    if (this.stopped) {
-      throw Error('addProtobufError called after stopTiming!');
+    if (this.stopped && shouldIncludeErrorTiming) {
+      throw Error(
+        'addProtobufError called after stopTiming ' +
+          'when we should include error serialization timing',
+      );
+    } else if (!this.stopped && !shouldIncludeErrorTiming) {
+      throw Error(
+        'addProtobufError called before stopTiming ' +
+          'when we should not include error serialization timing',
+      );
     }
 
     // By default, put errors on the root node.

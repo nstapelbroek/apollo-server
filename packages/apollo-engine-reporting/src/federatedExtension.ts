@@ -49,7 +49,7 @@ export class EngineFederatedTracingExtension<TContext = any>
 
   public didEncounterErrors(errors: GraphQLError[]) {
     if (this.enabled) {
-      this.treeBuilder.didEncounterErrors(errors);
+      this.treeBuilder.didEncounterErrors(errors, false);
     }
   }
 
