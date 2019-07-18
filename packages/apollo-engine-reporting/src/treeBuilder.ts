@@ -15,6 +15,7 @@ export class EngineReportingTreeBuilder {
     [rootResponsePath, this.rootNode],
   ]);
   private rewriteError?: (err: GraphQLError) => GraphQLError | null;
+  private consolePrefix = '[apollo-engine-reporting]';
 
   public constructor(options: {
     rewriteError?: (err: GraphQLError) => GraphQLError | null;
@@ -24,10 +25,14 @@ export class EngineReportingTreeBuilder {
 
   public startTiming() {
     if (this.startHrTime) {
-      throw Error('startTiming called twice!');
+      console.error(`${this.consolePrefix} startTiming called twice!`);
+      return;
     }
     if (this.stopped) {
-      throw Error('startTiming called after stopTiming!');
+      console.error(
+        `${this.consolePrefix} startTiming called after stopTiming!`,
+      );
+      return;
     }
     this.trace.startTime = dateToProtoTimestamp(new Date());
     this.startHrTime = process.hrtime();
@@ -35,10 +40,14 @@ export class EngineReportingTreeBuilder {
 
   public stopTiming() {
     if (!this.startHrTime) {
-      throw Error('stopTiming called before startTiming!');
+      console.error(
+        `${this.consolePrefix} stopTiming called before startTiming!`,
+      );
+      return;
     }
     if (this.stopped) {
-      throw Error('stopTiming called twice!');
+      console.error(`${this.consolePrefix} stopTiming called twice!`);
+      return;
     }
 
     this.trace.durationNs = durationHrTimeToNanos(
@@ -50,10 +59,16 @@ export class EngineReportingTreeBuilder {
 
   public willResolveField(info: GraphQLResolveInfo): () => void {
     if (!this.startHrTime) {
-      throw Error('willResolveField called before startTiming!');
+      console.error(
+        `${this.consolePrefix} willResolveField called before startTiming!`,
+      );
+      return () => {};
     }
     if (this.stopped) {
-      throw Error('willResolveField called after stopTiming!');
+      console.error(
+        `${this.consolePrefix} willResolveField called after stopTiming!`,
+      );
+      return () => {};
     }
 
     const path = info.path;
@@ -106,16 +121,21 @@ export class EngineReportingTreeBuilder {
     shouldIncludeErrorTiming: boolean,
   ) {
     if (!this.startHrTime) {
-      throw Error('addProtobufError called before startTiming!');
+      console.error(
+        `${this.consolePrefix} addProtobufError called before startTiming!`,
+      );
+      return;
     }
     if (this.stopped && shouldIncludeErrorTiming) {
-      throw Error(
-        'addProtobufError called after stopTiming ' +
+      console.error(
+        this.consolePrefix +
+          'addProtobufError called after stopTiming ' +
           'when we should include error serialization timing',
       );
     } else if (!this.stopped && !shouldIncludeErrorTiming) {
-      throw Error(
-        'addProtobufError called before stopTiming ' +
+      console.error(
+        this.consolePrefix +
+          'addProtobufError called before stopTiming ' +
           'when we should not include error serialization timing',
       );
     }
@@ -128,7 +148,7 @@ export class EngineReportingTreeBuilder {
         node = specificNode;
       } else {
         console.warn(
-          `Could not find node with path ${path.join(
+          `${this.consolePrefix} Could not find node with path ${path.join(
             '.',
           )}; defaulting to put errors on root node.`,
         );

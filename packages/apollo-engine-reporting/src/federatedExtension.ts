@@ -34,6 +34,14 @@ export class EngineFederatedTracingExtension<TContext = any>
     if (this.enabled) {
       this.treeBuilder.startTiming();
     }
+
+    return () => {
+      // It's possible that execution never started!
+      if (!this.done) {
+        this.treeBuilder.stopTiming();
+        this.done = true;
+      }
+    };
   }
 
   public willResolveField(
@@ -75,7 +83,10 @@ export class EngineFederatedTracingExtension<TContext = any>
       return;
     }
     if (!this.done) {
-      throw Error('format called before end of execution?');
+      console.error(
+        '[apollo-engine-reporting] format called before end of execution?',
+      );
+      return;
     }
     const encodedUint8Array = Trace.encode(this.treeBuilder.trace).finish();
     const encodedBuffer = Buffer.from(
