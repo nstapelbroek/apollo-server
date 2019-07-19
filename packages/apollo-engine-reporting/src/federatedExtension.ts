@@ -1,5 +1,5 @@
 import { GraphQLResolveInfo, GraphQLError } from 'graphql';
-import { GraphQLExtension, EndHandler } from 'graphql-extensions';
+import { GraphQLExtension } from 'graphql-extensions';
 import { Trace } from 'apollo-engine-reporting-protobuf';
 import { GraphQLRequestContext } from 'apollo-server-types';
 
@@ -8,7 +8,6 @@ import { EngineReportingTreeBuilder } from './treeBuilder';
 export class EngineFederatedTracingExtension<TContext = any>
   implements GraphQLExtension<TContext> {
   private enabled = false;
-  private done = false;
   private treeBuilder: EngineReportingTreeBuilder;
 
   public constructor(options: {
@@ -34,14 +33,6 @@ export class EngineFederatedTracingExtension<TContext = any>
     if (this.enabled) {
       this.treeBuilder.startTiming();
     }
-
-    return () => {
-      // It's possible that execution never started!
-      if (!this.done) {
-        this.treeBuilder.stopTiming();
-        this.done = true;
-      }
-    };
   }
 
   public willResolveField(
@@ -57,22 +48,7 @@ export class EngineFederatedTracingExtension<TContext = any>
 
   public didEncounterErrors(errors: GraphQLError[]) {
     if (this.enabled) {
-      this.treeBuilder.didEncounterErrors(errors, false);
-    }
-  }
-
-  public executionDidStart(): EndHandler | void {
-    if (this.enabled) {
-      // It's a little odd that we record the end time after execution rather than
-      // at the end of the whole request, but because we need to include our
-      // formatted trace in the request itself, we have to record it before the
-      // request is over!  It's also odd that we don't do traces for parse or
-      // validation errors, but runQuery doesn't currently support that, as
-      // format() is only invoked after execution.
-      return () => {
-        this.treeBuilder.stopTiming();
-        this.done = true;
-      };
+      this.treeBuilder.didEncounterErrors(errors);
     }
   }
 
@@ -82,12 +58,7 @@ export class EngineFederatedTracingExtension<TContext = any>
     if (!this.enabled) {
       return;
     }
-    if (!this.done) {
-      console.error(
-        '[apollo-engine-reporting] format called before end of execution?',
-      );
-      return;
-    }
+    this.treeBuilder.stopTiming();
     const encodedUint8Array = Trace.encode(this.treeBuilder.trace).finish();
     const encodedBuffer = Buffer.from(
       encodedUint8Array,

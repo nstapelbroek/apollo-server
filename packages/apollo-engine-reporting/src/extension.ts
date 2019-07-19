@@ -196,7 +196,7 @@ export class EngineReportingExtension<TContext = any>
   }
 
   public didEncounterErrors(errors: GraphQLError[]) {
-    this.treeBuilder.didEncounterErrors(errors, true);
+    this.treeBuilder.didEncounterErrors(errors);
   }
 }
 

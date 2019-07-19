@@ -25,14 +25,12 @@ export class EngineReportingTreeBuilder {
 
   public startTiming() {
     if (this.startHrTime) {
-      console.error(`${this.consolePrefix} startTiming called twice!`);
-      return;
+      throw new Error(`${this.consolePrefix} startTiming called twice!`);
     }
     if (this.stopped) {
-      console.error(
+      throw new Error(
         `${this.consolePrefix} startTiming called after stopTiming!`,
       );
-      return;
     }
     this.trace.startTime = dateToProtoTimestamp(new Date());
     this.startHrTime = process.hrtime();
@@ -40,14 +38,12 @@ export class EngineReportingTreeBuilder {
 
   public stopTiming() {
     if (!this.startHrTime) {
-      console.error(
+      throw new Error(
         `${this.consolePrefix} stopTiming called before startTiming!`,
       );
-      return;
     }
     if (this.stopped) {
-      console.error(`${this.consolePrefix} stopTiming called twice!`);
-      return;
+      throw new Error(`${this.consolePrefix} stopTiming called twice!`);
     }
 
     this.trace.durationNs = durationHrTimeToNanos(
@@ -59,16 +55,14 @@ export class EngineReportingTreeBuilder {
 
   public willResolveField(info: GraphQLResolveInfo): () => void {
     if (!this.startHrTime) {
-      console.error(
+      throw new Error(
         `${this.consolePrefix} willResolveField called before startTiming!`,
       );
-      return () => {};
     }
     if (this.stopped) {
-      console.error(
+      throw new Error(
         `${this.consolePrefix} willResolveField called after stopTiming!`,
       );
-      return () => {};
     }
 
     const path = info.path;
@@ -86,10 +80,7 @@ export class EngineReportingTreeBuilder {
     };
   }
 
-  public didEncounterErrors(
-    errors: GraphQLError[],
-    shouldIncludeErrorTiming: boolean,
-  ) {
+  public didEncounterErrors(errors: GraphQLError[]) {
     errors.forEach(err => {
       // This is an error from a federated service. We will already be reporting
       // it in the nested Trace in the query plan.
@@ -110,7 +101,6 @@ export class EngineReportingTreeBuilder {
       this.addProtobufError(
         errorForReporting.path,
         errorToProtobufError(errorForReporting),
-        shouldIncludeErrorTiming,
       );
     });
   }
@@ -118,28 +108,7 @@ export class EngineReportingTreeBuilder {
   private addProtobufError(
     path: ReadonlyArray<string | number> | undefined,
     error: Trace.Error,
-    shouldIncludeErrorTiming: boolean,
   ) {
-    if (!this.startHrTime) {
-      console.error(
-        `${this.consolePrefix} addProtobufError called before startTiming!`,
-      );
-      return;
-    }
-    if (this.stopped && shouldIncludeErrorTiming) {
-      console.error(
-        this.consolePrefix +
-          'addProtobufError called after stopTiming ' +
-          'when we should include error serialization timing',
-      );
-    } else if (!this.stopped && !shouldIncludeErrorTiming) {
-      console.error(
-        this.consolePrefix +
-          'addProtobufError called before stopTiming ' +
-          'when we should not include error serialization timing',
-      );
-    }
-
     // By default, put errors on the root node.
     let node = this.rootNode;
     if (path) {
